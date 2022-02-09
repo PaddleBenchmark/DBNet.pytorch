@@ -8,13 +8,22 @@ import argparse
 import os
 
 import anyconfig
-
+from mmcv import Config,DictAction
 
 def init_args():
     parser = argparse.ArgumentParser(description='DBNet.pytorch')
     parser.add_argument('--config_file', default='config/open_dataset_resnet18_FPN_DBhead_polyLR.yaml', type=str)
     parser.add_argument('--local_rank', dest='local_rank', default=0, type=int, help='Use distributed training')
-
+    parser.add_argument(
+        '--cfg-options',
+        nargs='+',
+        action=DictAction,
+        help='Override some settings in the used config, the key-value pair '
+        'in xxx=yyy format will be merged into config file. If the value to '
+        'be overwritten is a list, it should be of the form of either '
+        'key="[a,b]" or key=a,b .The argument also allows nested list/tuple '
+        'values, e.g. key="[(a,b),(c,d)]". Note that the quotation marks '
+        'are necessary and that no white space is allowed.')
     args = parser.parse_args()
     return args
 
@@ -72,7 +81,9 @@ if __name__ == '__main__':
 
     args = init_args()
     assert os.path.exists(args.config_file)
-    config = anyconfig.load(open(args.config_file, 'rb'))
-    if 'base' in config:
-        config = parse_config(config)
+    cfg = Config.fromfile(args.config_file)
+    if args.cfg_options is not None:
+        cfg.merge_from_dict(args.cfg_options)
+    if 'base' in cfg:
+        config = parse_config(cfg)
     main(config)
