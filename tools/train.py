@@ -37,7 +37,7 @@ def main(config):
     from utils import get_metric
     if torch.cuda.device_count() > 1:
         torch.cuda.set_device(args.local_rank)
-        torch.distributed.init_process_group(backend="nccl", init_method="env://", rank=args.local_rank)
+        torch.distributed.init_process_group(backend="nccl", init_method="env://")
         config['distributed'] = True
     else:
         config['distributed'] = False
