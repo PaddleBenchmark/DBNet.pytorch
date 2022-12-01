@@ -46,7 +46,7 @@ trainer:
   resume_checkpoint: ''
   finetune_checkpoint: ''
   output_dir: output
-  tensorboard: true
+  tensorboard: false
 dataset:
   train:
     dataset:

@@ -37,13 +37,17 @@ class Trainer(BaseTrainer):
 
     def _train_epoch(self, epoch):
         self.model.train()
+        total_samples = 0
+        train_reader_cost = 0.0
+        train_batch_cost = 0.0
+        reader_start = time.time()
         epoch_start = time.time()
-        batch_start = time.time()
         train_loss = 0.
         running_metric_text = runningScore(2)
         lr = self.optimizer.param_groups[0]['lr']
 
         for i, batch in enumerate(self.train_loader):
+            
             if i >= self.train_loader_len:
                 break
             self.global_step += 1
@@ -56,12 +60,18 @@ class Trainer(BaseTrainer):
                         batch[key] = value.to(self.device)
             cur_batch_size = batch['img'].size()[0]
 
+            train_reader_cost += time.time() - reader_start
             preds = self.model(batch['img'])
             loss_dict = self.criterion(preds, batch)
             # backward
             self.optimizer.zero_grad()
             loss_dict['loss'].backward()
             self.optimizer.step()
+           
+            train_batch_time = time.time() - reader_start
+            train_batch_cost += train_batch_time
+            total_samples += cur_batch_size
+
             if self.config['lr_scheduler']['type'] == 'WarmupPolyLR':
                 self.scheduler.step()
             # acc iou
@@ -83,12 +93,13 @@ class Trainer(BaseTrainer):
             iou_shrink_map = score_shrink_map['Mean IoU']
 
             if self.global_step % self.log_iter == 0:
-                batch_time = time.time() - batch_start
                 self.logger_info(
-                    '[{}/{}], [{}/{}], global_step: {}, speed: {:.1f} samples/sec, acc: {:.4f}, iou_shrink_map: {:.4f}, {}, lr:{:.6}, time:{:.2f}'.format(
-                        epoch, self.epochs, i + 1, self.train_loader_len, self.global_step, self.log_iter * cur_batch_size / batch_time, acc,
-                        iou_shrink_map, loss_str, lr, batch_time))
-                batch_start = time.time()
+                    '[{}/{}], [{}/{}], global_step: {}, speed: {:.1f} samples/sec, avg_reader_cost: {:.5f} s, avg_batch_cost: {:.5f} s, avg_samples: {}, acc: {:.4f}, iou_shrink_map: {:.4f}, {}, lr:{:.6}, time:{:.2f}'.format(
+                        epoch, self.epochs, i + 1, self.train_loader_len, self.global_step, total_samples / train_batch_cost, train_reader_cost / self.log_iter, train_batch_cost / self.log_iter, total_samples / self.log_iter, acc, 
+                        iou_shrink_map, loss_str, lr, train_reader_cost))
+                total_samples = 0
+                train_reader_cost = 0.0
+                train_batch_cost = 0.0
 
             if self.tensorboard_enable and self.config['local_rank'] == 0:
                 # write tensorboard
@@ -116,6 +127,7 @@ class Trainer(BaseTrainer):
                     show_pred = torch.cat(show_pred)
                     show_pred = vutils.make_grid(show_pred.unsqueeze(1), nrow=cur_batch_size, normalize=False, padding=20, pad_value=1)
                     self.writer.add_image('TRAIN/preds', show_pred, self.global_step)
+            reader_start = time.time()
         return {'train_loss': train_loss / self.train_loader_len, 'lr': lr, 'time': time.time() - epoch_start,
                 'epoch': epoch}
 
