@@ -34,6 +34,9 @@ class Trainer(BaseTrainer):
                     len(self.train_loader.dataset), self.train_loader_len, len(self.validate_loader.dataset), len(self.validate_loader)))
         else:
             self.logger_info('train dataset has {} samples,{} in dataloader'.format(len(self.train_loader.dataset), self.train_loader_len))
+        
+        self.enable_eval = config['trainer'].get('enable_eval', True)
+        self.scaler = torch.cuda.amp.GradScaler() if config['trainer'].get('amp', False) else None
 
     def _train_epoch(self, epoch):
         self.model.train()
@@ -47,7 +50,7 @@ class Trainer(BaseTrainer):
         lr = self.optimizer.param_groups[0]['lr']
 
         for i, batch in enumerate(self.train_loader):
-            
+            self.optimizer.zero_grad()
             if i >= self.train_loader_len:
                 break
             self.global_step += 1
@@ -61,12 +64,20 @@ class Trainer(BaseTrainer):
             cur_batch_size = batch['img'].size()[0]
 
             train_reader_cost += time.time() - reader_start
-            preds = self.model(batch['img'])
-            loss_dict = self.criterion(preds, batch)
-            # backward
-            self.optimizer.zero_grad()
-            loss_dict['loss'].backward()
-            self.optimizer.step()
+            if self.scaler is None:
+                preds = self.model(batch['img'])
+                loss_dict = self.criterion(preds, batch)
+                # backward
+                loss_dict['loss'].backward()
+                self.optimizer.step()
+            else:
+                with torch.cuda.amp.autocast():
+                    preds = self.model(batch['img'])
+                    loss_dict = self.criterion(preds, batch)
+
+                self.scaler.scale(loss_dict['loss']).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
            
             train_batch_time = time.time() - reader_start
             train_batch_cost += train_batch_time
@@ -165,7 +176,7 @@ class Trainer(BaseTrainer):
         if self.config['local_rank'] == 0:
             self._save_checkpoint(self.epoch_result['epoch'], net_save_path)
             save_best = False
-            if self.validate_loader is not None and self.metric_cls is not None:  # 使用f1作为最优模型指标
+            if self.validate_loader is not None and self.metric_cls is not None and self.enable_eval:  # 使用f1作为最优模型指标
                 recall, precision, hmean = self._eval(self.epoch_result['epoch'])
 
                 if self.tensorboard_enable:
@@ -199,6 +210,7 @@ class Trainer(BaseTrainer):
 
 
     def _on_train_finish(self):
-        for k, v in self.metrics.items():
-            self.logger_info('{}:{}'.format(k, v))
+        if self.enable_eval:
+            for k, v in self.metrics.items():
+                self.logger_info('{}:{}'.format(k, v))
         self.logger_info('finish train')

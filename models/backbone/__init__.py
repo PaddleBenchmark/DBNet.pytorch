@@ -4,7 +4,6 @@
 
 from .resnet import *
 from .resnest import *
-from .shufflenetv2 import *
 from .MobilenetV3 import MobileNetV3
 
 __all__ = ['build_backbone']
@@ -12,7 +11,6 @@ __all__ = ['build_backbone']
 support_backbone = ['resnet18', 'deformable_resnet18', 'deformable_resnet50',
                     'resnet50', 'resnet34', 'resnet101', 'resnet152',
                     'resnest50', 'resnest101', 'resnest200', 'resnest269',
-                    'shufflenet_v2_x0_5', 'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0',
                     'MobileNetV3']
 
 
