@@ -44,7 +44,8 @@ class BalanceCrossEntropyLoss(nn.Module):
         negative = ((1 - gt) * mask).byte()
         positive_count = int(positive.float().sum())
         negative_count = min(int(negative.float().sum()), int(positive_count * self.negative_ratio))
-        loss = nn.functional.binary_cross_entropy(pred, gt, reduction='none')
+        with torch.cuda.amp.autocast(enabled=False):
+            loss = nn.functional.binary_cross_entropy(pred, gt, reduction='none')
         positive_loss = loss * positive.float()
         negative_loss = loss * negative.float()
         # negative_loss, _ = torch.topk(negative_loss.view(-1).contiguous(), negative_count)

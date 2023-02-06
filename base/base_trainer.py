@@ -21,10 +21,7 @@ class BaseTrainer:
         self.save_dir = os.path.join(config['trainer']['output_dir'], config['name'])
         self.checkpoint_dir = os.path.join(self.save_dir, 'checkpoint')
 
-        if config['trainer']['resume_checkpoint'] == '' and config['trainer']['finetune_checkpoint'] == '':
-            shutil.rmtree(self.save_dir, ignore_errors=True)
-        if not os.path.exists(self.checkpoint_dir):
-            os.makedirs(self.checkpoint_dir)
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         self.global_step = 0
         self.start_epoch = 0
