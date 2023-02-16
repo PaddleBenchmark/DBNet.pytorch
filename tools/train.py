@@ -24,6 +24,10 @@ def init_args():
         'key="[a,b]" or key=a,b .The argument also allows nested list/tuple '
         'values, e.g. key="[(a,b),(c,d)]". Note that the quotation marks '
         'are necessary and that no white space is allowed.')
+    parser.add_argument(
+        '--torchcompile',
+        action='store_true',
+        help='Whether not to evaluate the checkpoint during training.')
     args = parser.parse_args()
     return args
 
@@ -54,7 +58,8 @@ def main(config):
 
     config['arch']['backbone']['in_channels'] = 3 if config['dataset']['train']['dataset']['args']['img_mode'] != 'GRAY' else 1
     model = build_model(config['arch'])
-
+    if args.torchcompile:
+        model = torch.compile(model)
     post_p = get_post_processing(config['post_processing'])
     metric = get_metric(config['metric'])
 
