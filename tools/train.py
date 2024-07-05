@@ -8,7 +8,8 @@ import argparse
 import os
 
 import anyconfig
-from mmcv import Config,DictAction
+# from mmcv import Config,DictAction
+from mmengine import Config,DictAction # 202407 fix for mmcv==2.0.0
 
 def init_args():
     parser = argparse.ArgumentParser(description='DBNet.pytorch')
